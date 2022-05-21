@@ -274,7 +274,13 @@ func DeroGetTx(txHash string) (rpc.GetTransaction_Result, bool) {
 func DeroGetTxInfo(txHash string) (rpc.Tx_Related_Info, bool) {
 	value, valid := DeroGetTx(txHash)
 
-	return value.Txs[0], valid
+	ret := rpc.Tx_Related_Info{}
+
+	if valid {
+		ret = value.Txs[0]
+	}
+
+	return ret, valid
 }
 
 func DeroConfirmTx(txid string) (restult string) {
