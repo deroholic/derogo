@@ -283,11 +283,15 @@ func DeroGetTxInfo(txHash string) (rpc.Tx_Related_Info, bool) {
 	return ret, valid
 }
 
-func DeroConfirmTx(txid string) (restult string) {
+func DeroConfirmTx(txid string, settleBlocks uint64) (restult string) {
 	tx, valid := DeroGetTxInfo(txid)
 
 	if !valid {
 		return "error"
+	}
+
+	if uint64(tx.Block_Height) + settleBlocks <= DeroGetHeight() {
+		return "pending"
 	}
 
 	if tx.In_pool {
@@ -378,3 +382,12 @@ func DeroGetWalletHeight() uint64 {
 	return w.Get_Height()
 }
 
+func DeroGetPub() []byte {
+	keys :=  w.Get_Keys()
+	return []byte(keys.Public.String())
+}
+
+func DeroGetPriv() []byte {
+	keys :=  w.Get_Keys()
+	return []byte(keys.Secret.String())
+}
