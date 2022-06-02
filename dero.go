@@ -374,8 +374,14 @@ func DeroParseValidateAddress(a string) (addr *rpc.Address, err error) {
 	return globals.ParseValidateAddress(a)
 }
 
+func DeroGetInfo() (info rpc.GetInfo_Result) {
+	deroNode.call("DERO.GetInfo", nil, &info)
+	return
+}
+
 func DeroGetHeight() uint64 {
-	return w.Get_Daemon_Height()
+	info := DeroGetInfo()
+	return uint64(info.Height)
 }
 
 func DeroGetWalletHeight() uint64 {
@@ -390,4 +396,12 @@ func DeroGetPub() []byte {
 func DeroGetPriv() []byte {
 	keys :=  w.Get_Keys()
 	return []byte(keys.Secret.String())
+}
+
+func DeroMinerAddressToPubKey(minerAddr [33]byte) string {
+	var acckey crypto.Point
+	acckey.DecodeCompressed(minerAddr[:])
+	astring := rpc.NewAddressFromKeys(&acckey)
+
+	return astring.String()
 }
