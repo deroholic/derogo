@@ -290,7 +290,7 @@ func DeroConfirmTx(txid string, settleBlocks uint64) (restult string) {
 		return "error"
 	}
 
-	if uint64(tx.Block_Height) + settleBlocks <= DeroGetHeight() {
+	if uint64(tx.Block_Height) + settleBlocks > DeroGetHeight() {
 		return "pending"
 	}
 
