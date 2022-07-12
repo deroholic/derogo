@@ -305,13 +305,14 @@ func DeroConfirmTx(txid string, settleBlocks uint64) (restult string) {
 	return "failed"
 }
 
-func DeroCallSC(SCID string, transfers []rpc.Transfer, args rpc.Arguments) (string, bool) {
+func DeroCallSC(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (string, bool) {
 	var p rpc.Transfer_Params
 	p.Transfers = transfers
 	p.SC_ID = SCID
 	p.SC_RPC = args
 	p.Ringsize = 2
 	p.SC_RPC = args
+	p.Fees = fees
 
 	p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCACTION, DataType: rpc.DataUint64, Value: uint64(rpc.SC_CALL)})
 	p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCID, DataType: rpc.DataHash, Value: crypto.HashHexToHash(p.SC_ID)})
