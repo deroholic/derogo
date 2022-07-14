@@ -305,7 +305,7 @@ func DeroConfirmTx(txid string, settleBlocks uint64) (restult string) {
 	return "failed"
 }
 
-func DeroCallSC(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (string, bool) {
+func deroBuildCall(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (rpc.Transfer_Params) {
 	var p rpc.Transfer_Params
 	p.Transfers = transfers
 	p.SC_ID = SCID
@@ -317,7 +317,28 @@ func DeroCallSC(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees 
 	p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCACTION, DataType: rpc.DataUint64, Value: uint64(rpc.SC_CALL)})
 	p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCID, DataType: rpc.DataHash, Value: crypto.HashHexToHash(p.SC_ID)})
 
+	return p
+}
+
+func DeroCallSC(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (string, bool) {
+	p := deroBuildCall(SCID, transfers, args, fees)
+
 	return deroTransfer(p)
+}
+
+func DeroEstimateGas(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (rpc.GasEstimate_Result, bool) {
+	var p = rpc.GasEstimate_Params(deroBuildCall(SCID, transfers, args, fees))
+        var r rpc.GasEstimate_Result
+	var valid = false
+
+        err := deroNode.call("DERO.GetGasEstimate", p, &r)
+        if err != nil {
+                fmt.Printf("DERO.GetGasEstimate error: %s\n", err)
+        } else  {
+                valid = true
+        }
+
+	return r, valid
 }
 
 func DeroGetRandomAddress() (string) {
