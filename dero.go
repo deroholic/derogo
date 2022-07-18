@@ -427,3 +427,7 @@ func DeroMinerAddressToPubKey(minerAddr [33]byte) string {
 
 	return astring.String()
 }
+
+func DeroInitLookupTable(count int, table_size int) {
+        walletapi.Initialize_LookupTable(count, table_size)
+}
