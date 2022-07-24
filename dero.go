@@ -356,6 +356,19 @@ func DeroCallSC(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees 
 	return deroTransfer(p)
 }
 
+func DeroSafeCallSC(scid string, transfers []rpc.Transfer, args rpc.Arguments) (string, bool) {
+        res, res_valid := DeroEstimateGas(scid, transfers, args, 0)
+        if !res_valid {
+                return "", false
+        }
+
+        if res.Status != "OK" {
+                return res.Status, false
+        }
+
+        return DeroCallSC(scid, transfers, args, res.GasStorage)
+}
+
 func DeroEstimateGas(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (rpc.GasEstimate_Result, bool) {
 	var p = rpc.GasEstimate_Params(deroBuildCall(SCID, transfers, args, fees))
         var r rpc.GasEstimate_Result
