@@ -186,6 +186,35 @@ func DeroBuildTransfers(transfers []rpc.Transfer, SCID string, destination strin
 	return transfers
 }
 
+func DeroSafeDeploy(src []byte, args rpc.Arguments) (string, bool) {
+        var p rpc.Transfer_Params
+
+        p.SC_Code = string(src)
+        p.Ringsize = 2
+        p.Signer = DeroGetAddress().String()
+        p.SC_RPC = args
+        p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCACTION, DataType: rpc.DataUint64, Value: uint64(rpc.SC_INSTALL)})
+        p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCCODE, DataType: rpc.DataString, Value: p.SC_Code})
+
+        var g = rpc.GasEstimate_Params(p)
+        var r rpc.GasEstimate_Result
+        var valid = false
+
+        err := deroNode.call("DERO.GetGasEstimate", g, &r)
+        if err != nil {
+                fmt.Printf("DERO.GetGasEstimate error: %s\n", err)
+        } else  {
+                valid = true
+        }
+
+        if valid  && r.Status == "OK" {
+		p.Fees = r.GasStorage
+                return deroTransfer(p)
+        }
+
+        return "", false
+}
+
 func DeroDeploySC(code []byte) (string, bool) {
         var p rpc.Transfer_Params
 
@@ -311,7 +340,8 @@ func deroBuildCall(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fe
 	p.SC_ID = SCID
 	p.SC_RPC = args
 	p.Ringsize = 2
-	p.SC_RPC = args
+	p.Signer = DeroGetAddress().String()
+
 	p.Fees = fees
 
 	p.SC_RPC = append(p.SC_RPC, rpc.Argument{Name: rpc.SCACTION, DataType: rpc.DataUint64, Value: uint64(rpc.SC_CALL)})
