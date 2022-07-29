@@ -127,6 +127,7 @@ func DeroWalletInit(node string, mainnet bool, wallet string, password string) {
 		os.Exit(-1)
 	}
 
+	w.SetNetwork(mainnet)
 	w.SetOnlineMode();
 
 	if wdisk != nil && !w.IsRegistered() {
