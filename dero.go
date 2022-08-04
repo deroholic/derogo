@@ -368,12 +368,19 @@ func DeroSafeCallSC(scid string, transfers []rpc.Transfer, args rpc.Arguments) (
                 return res.Status, false
         }
 
-	// round up
 	fee := res.GasStorage
-	mod := (fee-1) / config.FEE_PER_KB
-	fee = (mod+1) * config.FEE_PER_KB
+	txid, txid_valid := DeroCallSC(scid, transfers, args, fee)
 
-        return DeroCallSC(scid, transfers, args, fee)
+	if !txid_valid {
+		fmt.Printf("Retrying with higher fee...\n")
+		// round up, try again
+		div := (fee-1) / config.FEE_PER_KB
+		fee = (div+1) * config.FEE_PER_KB
+
+		txid, txid_valid = DeroCallSC(scid, transfers, args, fee)
+	}
+
+	return txid, txid_valid
 }
 
 func DeroEstimateGas(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (rpc.GasEstimate_Result, bool) {
