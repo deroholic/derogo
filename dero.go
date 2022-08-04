@@ -19,6 +19,7 @@ import (
 	"github.com/deroproject/derohe/cryptography/crypto"
 	"github.com/deroproject/derohe/globals"
 	"github.com/deroproject/derohe/block"
+	"github.com/deroproject/derohe/config"
         "github.com/creachadair/jrpc2"
         "github.com/creachadair/jrpc2/channel"
         "github.com/gorilla/websocket"
@@ -367,7 +368,12 @@ func DeroSafeCallSC(scid string, transfers []rpc.Transfer, args rpc.Arguments) (
                 return res.Status, false
         }
 
-        return DeroCallSC(scid, transfers, args, res.GasStorage)
+	// round up
+	fee := res.GasStorage
+	mod := (fee-1) / config.FEE_PER_KB
+	fee = (mod+1) * config.FEE_PER_KB
+
+        return DeroCallSC(scid, transfers, args, fee)
 }
 
 func DeroEstimateGas(SCID string, transfers []rpc.Transfer, args rpc.Arguments, fees uint64) (rpc.GasEstimate_Result, bool) {
