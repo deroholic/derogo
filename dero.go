@@ -25,23 +25,23 @@ import (
         "github.com/gorilla/websocket"
 )
 
-type deroClient struct {
+type DeroClient struct {
         WS  *websocket.Conn
         RPC *jrpc2.Client
 }
 
-var deroNode *deroClient
+var deroNode *DeroClient
 var w *walletapi.Wallet_Memory
 var deroNodeAddr string
 
-func (cli *deroClient) IsDaemonOnline() bool {
+func (cli *DeroClient) IsDaemonOnline() bool {
         if cli.WS == nil || cli.RPC == nil {
                 return false
         }
         return true
 }
 
-func (cli *deroClient) call(method string, params interface{}, result interface{}) error {
+func (cli *DeroClient) Call(method string, params interface{}, result interface{}) error {
         try := 0
 try_again:
         if cli == nil || !cli.IsDaemonOnline() {
@@ -68,11 +68,11 @@ func deroConnect() (err error) {
         return nil
 }
 
-func DeroInit(node string) {
+func DeroInit(node string) (*DeroClient) {
 	deroNodeAddr = node
 
 	if deroNode == nil {
-		deroNode = &deroClient{}
+		deroNode = &DeroClient{}
 		err := deroConnect()
 		if err != nil {
 			fmt.Printf("Error connecting to node: %s\n", err)
@@ -81,13 +81,15 @@ func DeroInit(node string) {
 
 		go deroNode.deroKeepConnected()
 	}
+
+	return deroNode
 }
 
-func (cli *deroClient) deroKeepConnected() {
+func (cli *DeroClient) deroKeepConnected() {
 	for {
 		if cli.IsDaemonOnline() {
 			var result string
-			if err := cli.call("DERO.Ping", nil, &result); err != nil {
+			if err := cli.Call("DERO.Ping", nil, &result); err != nil {
 				fmt.Printf("Ping failed: %s\n", err)
 				cli.RPC.Close()
 				cli.WS = nil
@@ -101,7 +103,7 @@ func (cli *deroClient) deroKeepConnected() {
 	}
 }
 
-func DeroWalletInit(node string, mainnet bool, wallet string, password string) {
+func DeroWalletInit(node string, mainnet bool, wallet string, password string) (*walletapi.Wallet_Memory) {
 	globals.Arguments["--daemon-address"] = node
 	globals.Arguments["--testnet"] = !mainnet
 	globals.InitNetwork()
@@ -138,6 +140,8 @@ func DeroWalletInit(node string, mainnet bool, wallet string, password string) {
 	go walletapi.Keep_Connectivity()
 
 	walletapi.Initialize_LookupTable(1, 1<<22)
+
+	return w
 }
 
 func DeroTransfer(transfers []rpc.Transfer) (string, bool) {
@@ -202,7 +206,7 @@ func DeroSafeDeploy(src []byte, args rpc.Arguments) (string, bool) {
         var r rpc.GasEstimate_Result
         var valid = false
 
-        err := deroNode.call("DERO.GetGasEstimate", g, &r)
+        err := deroNode.Call("DERO.GetGasEstimate", g, &r)
         if err != nil {
                 fmt.Printf("DERO.GetGasEstimate error: %s\n", err)
         } else  {
@@ -235,7 +239,7 @@ func DeroGetBlock(blockHeight uint64) (block.Block, bool) {
 	p := rpc.GetBlock_Params{Height: blockHeight}
 	r := rpc.GetBlock_Result{}
 
-	err := deroNode.call("DERO.GetBlock", p, &r)
+	err := deroNode.Call("DERO.GetBlock", p, &r)
 	if err != nil {
 //		fmt.Printf("DERO.GetBlock error: %s\n", err)
 		valid = false
@@ -253,7 +257,7 @@ func DeroGetVars(SCID string) (map[string]interface{}, bool) {
 	var p = rpc.GetSC_Params{SCID: SCID, Variables: true, Code: false}
 	var r rpc.GetSC_Result
 
-	err := deroNode.call("DERO.GetSC", p, &r)
+	err := deroNode.Call("DERO.GetSC", p, &r)
 	if err != nil {
 		fmt.Printf("DERO.GetSC error: %s\n", err)
 		valid = false
@@ -273,7 +277,7 @@ func DeroGetVar(SCID string, variable string) (string, bool) {
 	var p = rpc.GetSC_Params{SCID: SCID, Variables: false, Code: false, KeysString: []string{variable}}
 	var r rpc.GetSC_Result
 
-	err := deroNode.call("DERO.GetSC", p, &r)
+	err := deroNode.Call("DERO.GetSC", p, &r)
 	if err != nil {
 		fmt.Printf("DERO.GetSC error: %s\n", err)
 		valid = false
@@ -293,7 +297,7 @@ func DeroGetTx(txHash string) (rpc.GetTransaction_Result, bool) {
 	p := rpc.GetTransaction_Params{Tx_Hashes: []string{txHash}}
 	r := rpc.GetTransaction_Result{}
 
-	err := deroNode.call("DERO.GetTransaction", p, &r)
+	err := deroNode.Call("DERO.GetTransaction", p, &r)
 	if err != nil {
 		fmt.Printf("DERO.GetTransaction error: %s\n", err)
 		valid = false
@@ -388,7 +392,7 @@ func DeroEstimateGas(SCID string, transfers []rpc.Transfer, args rpc.Arguments, 
         var r rpc.GasEstimate_Result
 	var valid = false
 
-        err := deroNode.call("DERO.GetGasEstimate", p, &r)
+        err := deroNode.Call("DERO.GetGasEstimate", p, &r)
         if err != nil {
                 fmt.Printf("DERO.GetGasEstimate error: %s\n", err)
         } else  {
@@ -403,7 +407,7 @@ func DeroGetRandomAddress() (string) {
 	var r rpc.GetRandomAddress_Result
 
 	for len(r.Address) < 1 {
-		deroNode.call("DERO.GetRandomAddress", p, &r)
+		deroNode.Call("DERO.GetRandomAddress", p, &r)
 	}
 
 	return r.Address[0]
@@ -454,7 +458,7 @@ func DeroParseValidateAddress(a string) (addr *rpc.Address, err error) {
 }
 
 func DeroGetInfo() (info rpc.GetInfo_Result) {
-	deroNode.call("DERO.GetInfo", nil, &info)
+	deroNode.Call("DERO.GetInfo", nil, &info)
 	return
 }
 
