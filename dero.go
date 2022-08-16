@@ -115,7 +115,7 @@ func DeroWalletInit(node string, mainnet bool, wallet string, password string) (
 			var seed []byte
 			seed, err = hex.DecodeString(wallet)
 			if err == nil {
-				w, err = walletapi.Create_Encrypted_Wallet_Memory("test", new(crypto.BNRed).SetBytes(seed))
+				w, err = walletapi.Create_Encrypted_Wallet_Memory("wallet", new(crypto.BNRed).SetBytes(seed))
 			}
 		}
 	} else {
@@ -232,9 +232,8 @@ func DeroDeploySC(code []byte) (string, bool) {
 	return deroTransfer(p)
 }
 
-func DeroGetBlock(blockHeight uint64) (block.Block, bool) {
-	valid := true
-	value := block.Block{}
+func DeroGetBlock(blockHeight uint64) (value block.Block, valid bool) {
+	valid = true
 
 	p := rpc.GetBlock_Params{Height: blockHeight}
 	r := rpc.GetBlock_Result{}
@@ -247,12 +246,11 @@ func DeroGetBlock(blockHeight uint64) (block.Block, bool) {
 		json.Unmarshal([]byte(r.Json), &value)
 	}
 
-	return value, valid
+	return
 }
 
-func DeroGetVars(SCID string) (map[string]interface{}, bool) {
-	var variables map[string]interface{}
-	valid := true
+func DeroGetVars(SCID string) (variables map[string]interface{}, valid bool) {
+	valid = true
 
 	var p = rpc.GetSC_Params{SCID: SCID, Variables: true, Code: false}
 	var r rpc.GetSC_Result
@@ -262,17 +260,14 @@ func DeroGetVars(SCID string) (map[string]interface{}, bool) {
 		fmt.Printf("DERO.GetSC error: %s\n", err)
 		valid = false
 	} else  {
-//s, _ := json.MarshalIndent(r, "", "\t")
-//fmt.Print(string(s))
 		variables = r.VariableStringKeys;
 	}
 
-	return variables, valid
+	return
 }
 
-func DeroGetVar(SCID string, variable string) (string, bool) {
-	valid := true
-	value := ""
+func DeroGetVar(SCID string, variable string) (value string, valid bool) {
+	valid = true
 
 	var p = rpc.GetSC_Params{SCID: SCID, Variables: false, Code: false, KeysString: []string{variable}}
 	var r rpc.GetSC_Result
@@ -288,14 +283,13 @@ func DeroGetVar(SCID string, variable string) (string, bool) {
 		}
 	}
 
-	return value, valid
+	return
 }
 
-func DeroGetTx(txHash string) (rpc.GetTransaction_Result, bool) {
-	valid := true
+func DeroGetTx(txHash string) (r rpc.GetTransaction_Result, valid bool) {
+	valid = true
 
 	p := rpc.GetTransaction_Params{Tx_Hashes: []string{txHash}}
-	r := rpc.GetTransaction_Result{}
 
 	err := deroNode.Call("DERO.GetTransaction", p, &r)
 	if err != nil {
@@ -303,7 +297,7 @@ func DeroGetTx(txHash string) (rpc.GetTransaction_Result, bool) {
 		valid = false
 	}
 
-	return r, valid
+	return
 }
 
 func DeroGetTxInfo(txHash string) (rpc.Tx_Related_Info, bool) {
@@ -491,4 +485,153 @@ func DeroMinerAddressToPubKey(minerAddr [33]byte) string {
 
 func DeroInitLookupTable(count int, table_size int) {
         walletapi.Initialize_LookupTable(count, table_size)
+}
+
+var keystoreSCID string
+
+func DeroGetKeystoreSCID() (scid string, valid bool) {
+	scid = keystoreSCID
+	valid = true
+
+	if len(scid) == 0 {
+		var zerohash crypto.Hash
+		zerohash[31] = 1
+
+		scid, valid = DeroGetVar(hex.EncodeToString(zerohash[:]), "keystore")
+
+		valid = (valid && len(scid) > 0)
+
+		if valid {
+			scid = "80" + scid[2:64]
+		}
+	}
+
+	return
+}
+
+func DeroGetKey(key string) (r rpc.GetSC_Result, valid bool) {
+	scid, scid_valid := DeroGetKeystoreSCID()
+
+	if scid_valid {
+		var p = rpc.GetSC_Params{SCID: scid, Variables: false, Code: false, KeysString: []string{"k:" + key}}
+
+		err := deroNode.Call("DERO.GetSC", p, &r)
+		if err == nil {
+//			s, _ := json.MarshalIndent(r, "", "\t")
+//			fmt.Printf("%s\n", string(s))
+			valid = true
+		}
+	}
+
+	return
+}
+
+func DeroGetKeyString(key string) (value string, valid bool) {
+	r, r_valid := DeroGetKey(key)
+
+        if r_valid {
+                str := r.ValuesString[0]
+		bytes, _ := hex.DecodeString(str)
+		value = string(bytes)
+		valid = !strings.Contains(str, "NOT AVAILABLE")
+        }
+
+        return
+}
+
+func DeroGetKeyHex(key string) (value string, valid bool) {
+	r, r_valid := DeroGetKey(key)
+
+        if r_valid {
+                value = r.ValuesString[0]
+		valid = !strings.Contains(value, "NOT AVAILABLE")
+        }
+
+        return
+}
+
+func DeroGetKeyUint64(key string) (value uint64, valid bool) {
+	r, r_valid := DeroGetKey(key)
+
+        if r_valid {
+                str := r.ValuesString[0]
+                num, _ := strconv.Atoi(str)
+		value = uint64(num)
+		valid = !strings.Contains(str, "NOT AVAILABLE")
+        }
+
+        return
+}
+
+func DeroStoreKeyString(key string, value string) (txid string, valid bool) {
+        var transfers []rpc.Transfer
+        var args rpc.Arguments
+        args = append(args, rpc.Argument {"entrypoint", rpc.DataString, "StoreKeyString"})
+        args = append(args, rpc.Argument {"k", rpc.DataString, key})
+        args = append(args, rpc.Argument {"v", rpc.DataString, value})
+
+        scid, scid_valid := DeroGetKeystoreSCID()
+	if scid_valid {
+		txid, valid = DeroSafeCallSC(scid, transfers, args)
+	}
+
+	return
+}
+
+func DeroStoreKeyHex(key string, value string) (txid string, valid bool) {
+        var transfers []rpc.Transfer
+        var args rpc.Arguments
+        args = append(args, rpc.Argument {"entrypoint", rpc.DataString, "StoreKeyHex"})
+        args = append(args, rpc.Argument {"k", rpc.DataString, key})
+        args = append(args, rpc.Argument {"v", rpc.DataString, value})
+
+        scid, scid_valid := DeroGetKeystoreSCID()
+	if scid_valid {
+		txid, valid = DeroSafeCallSC(scid, transfers, args)
+	}
+
+	return
+}
+
+func DeroStoreKeyUint64(key string, value uint64) (txid string, valid bool) {
+        var transfers []rpc.Transfer
+        var args rpc.Arguments
+        args = append(args, rpc.Argument {"entrypoint", rpc.DataString, "StoreKeyUint64"})
+        args = append(args, rpc.Argument {"k", rpc.DataString, key})
+        args = append(args, rpc.Argument {"v", rpc.DataUint64, value})
+
+        scid, scid_valid := DeroGetKeystoreSCID()
+	if scid_valid {
+		txid, valid = DeroSafeCallSC(scid, transfers, args)
+	}
+
+	return
+}
+
+func DeroLockKey(key string) (txid string, valid bool) {
+        var transfers []rpc.Transfer
+        var args rpc.Arguments
+        args = append(args, rpc.Argument {"entrypoint", rpc.DataString, "LockKey"})
+        args = append(args, rpc.Argument {"k", rpc.DataString, key})
+
+        scid, scid_valid := DeroGetKeystoreSCID()
+	if scid_valid {
+		txid, valid = DeroSafeCallSC(scid, transfers, args)
+	}
+
+	return
+}
+
+func DeroDeleteKey(key string) (txid string, valid bool) {
+        var transfers []rpc.Transfer
+        var args rpc.Arguments
+        args = append(args, rpc.Argument {"entrypoint", rpc.DataString, "DeleteKey"})
+        args = append(args, rpc.Argument {"k", rpc.DataString, key})
+
+        scid, scid_valid := DeroGetKeystoreSCID()
+	if scid_valid {
+		txid, valid = DeroSafeCallSC(scid, transfers, args)
+	}
+
+	return
 }
