@@ -56,6 +56,13 @@ try_again:
         return cli.RPC.CallResult(context.Background(), method, params, result)
 }
 
+func DeroSendRegTxn(data []byte) (error) {
+	params := rpc.SendRawTransaction_Params{Tx_as_hex: hex.EncodeToString(data)}
+	var result rpc.SendRawTransaction_Result
+
+	return deroNode.Call("DERO.SendRawTransaction", params, &result)
+}
+
 func deroConnect() (err error) {
         deroNode.WS, _, err = websocket.DefaultDialer.Dial("ws://"+deroNodeAddr+"/ws", nil)
 	if err != nil {
