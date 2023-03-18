@@ -642,3 +642,27 @@ func DeroDeleteKey(key string) (txid string, valid bool) {
 
 	return
 }
+
+func DeroHR2HexComp(hr string) (string) {
+        var a rpc.Address
+
+        a.UnmarshalText([]byte(hr))
+
+        return hex.EncodeToString(a.PublicKey.EncodeCompressed())
+}
+
+func DeroHexComp2HR(comp string) (string, error) {
+        b, err1 :=  hex.DecodeString(comp)
+
+        if err1 != nil {
+                return "", err1
+        }
+
+        a, err2 :=  rpc.NewAddressFromCompressedKeys(b)
+
+        if err2 != nil {
+                return "", err2
+        }
+
+        return a.String(), err2
+}
